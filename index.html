@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Intune & Entra ID</title>
+<style>
+  :root {
+    --bg:        #efece4;
+    --bg-grid:   #e6e2d6;
+    --ink:       #15130f;
+    --ink-soft:  #5b574e;
+    --ink-faint: #a8a298;
+    --paper:     #ffffff;
+    --paper-2:   #faf7ee;
+    --accent:    #b6400a;
+    --accent-soft:#f0d9c6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100vw; height: 100vh;
+    overflow: hidden; 
+    background: var(--bg); color: var(--ink);
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    font-feature-settings: 'ss01','cv11';
+    -webkit-font-smoothing: antialiased;
+    user-select: none; 
+  }
+  
+  .card { user-select: text; }
+
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace; }
+
+  .page { 
+    padding: 48px 56px 80px; 
+    min-width: 3400px; /* Expanded for larger gaps */
+    width: fit-content;
+    transform-origin: 0 0;
+    will-change: transform;
+    transform: translateZ(0); 
+  }
+
+  header { max-width: 1140px; margin-bottom: 32px; }
+  h1.title { font-size: 44px; font-weight: 700; margin: 0 0 14px; letter-spacing: -0.018em; line-height: 1.05; }
+  .lede { font-size: 16px; line-height: 1.55; max-width: 820px; color: var(--ink); margin: 0; }
+  .lede strong { color: var(--accent); font-weight: 600; }
+
+  .legend {
+    display: flex; gap: 28px; align-items: center; margin-top: 28px;
+    background: var(--paper); border: 1px solid var(--ink); padding: 14px 22px; width: fit-content;
+  }
+  .legend-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em; padding-right: 22px; border-right: 1px solid var(--ink); }
+  .legend-item { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+  .legend-hint { margin-left: auto; padding-left: 22px; border-left: 1px solid var(--ink); font-size: 12px; color: var(--ink-soft); font-style: italic; }
+
+  .board-wrap {
+    position: relative; margin-top: 36px; background: var(--bg);
+    background-image: linear-gradient(var(--bg-grid) 1px, transparent 1px), linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+    background-size: 40px 40px; background-position: -1px -1px;
+    border: 1px solid var(--ink); padding: 60px 48px 48px; width: fit-content;
+  }
+  .board { position: relative; width: 3200px; } /* Wider board to accommodate massive gaps */
+
+  .column {
+    position: absolute; width: 400px; /* Extremely wide boxes to reduce vertical height */
+    display: flex; flex-direction: column; gap: 16px; top: 56px;
+  }
+  
+  /* 280px gaps between columns for perfect arrow/label clearance */
+  .col-1 { left: 0; }
+  .col-2 { left: 680px; }
+  .col-3 { left: 1360px; }
+  .col-4 { left: 2040px; }
+  .col-5 { left: 2720px; }
+
+  .col-header {
+    position: absolute; width: 400px; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink);
+    padding-bottom: 10px; border-bottom: 2px solid var(--ink);
+    display: flex; align-items: baseline; gap: 10px; top: 0;
+  }
+  .col-header .num { font-family: ui-monospace, Consolas, monospace; font-size: 16px; font-weight: 600; color: var(--accent); letter-spacing: 0; }
+
+  .card {
+    background: var(--paper); border: 1.5px solid var(--ink);
+    padding: 12px 14px 14px; cursor: pointer; position: relative; z-index: 3;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .card:hover { transform: translate(-1px,-1px); box-shadow: 2px 2px 0 var(--ink); }
+  .card.active { border-color: var(--accent); box-shadow: 6px 6px 0 var(--accent); transform: translate(-3px,-3px); z-index: 4; }
+  .card.related { box-shadow: 4px 4px 0 var(--ink); transform: translate(-2px,-2px); z-index: 4; }
+  .card.dim { opacity: 0.22; box-shadow: none; transform: none; }
+  
+  /* Search Match */
+  .card.search-match { border-color: var(--accent); box-shadow: 4px 4px 0 var(--accent); transform: translate(-2px,-2px); opacity: 1; z-index: 4; }
+
+  .card .ord { font-family: ui-monospace, Consolas, monospace; font-size: 10px; color: var(--ink-soft); letter-spacing: 0.06em; margin-bottom: 3px; }
+  .card .name { font-size: 16px; font-weight: 700; line-height: 1.2; letter-spacing: -0.005em; margin-bottom: 8px; }
+  .card .blurb { font-size: 12px; line-height: 1.45; color: var(--ink); margin: 0 0 8px 0; }
+  .card ul { margin: 0; padding-left: 14px; font-size: 11.5px; line-height: 1.45; color: var(--ink); }
+  .card ul li { margin-bottom: 2px; }
+  .card code { font-size: 10.5px; background: var(--bg); padding: 1px 4px; border-radius: 2px; }
+  .card em { font-style: italic; color: var(--ink-soft); }
+
+  .section-head {
+    font-family: ui-monospace, Consolas, monospace; font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft);
+    margin: 8px 0 3px; padding-bottom: 2px; border-bottom: 1px dashed var(--ink-faint);
+  }
+  .section-head:first-of-type { margin-top: 4px; }
+
+  .facet { margin-top: 10px; background: var(--paper-2); border-left: 3px solid var(--ink); padding: 8px 10px 8px 12px; }
+  .facet-label { font-family: ui-monospace, Consolas, monospace; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .facet-label::before { content: '↳'; color: var(--accent); }
+  .facet ul { padding-left: 12px; font-size: 11px; color: var(--ink-soft); }
+
+  .card.overlay { background: var(--paper-2); border-style: dashed; }
+  .card.overlay .ord { color: var(--accent); }
+  .card.overlay .name::after { content: ' · admin plane'; font-weight: 400; font-size: 11px; color: var(--ink-soft); font-style: italic; }
+
+  svg.edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+  .edge { fill: none; stroke: var(--ink); stroke-width: 1.5; transition: stroke 0.15s, stroke-width 0.15s, opacity 0.15s; }
+  .edge.apply { stroke-width: 2.25; }
+  .edge.signal { stroke-dasharray: 5 4; stroke-width: 1.5; }
+  .edge.dim { opacity: 0.1; }
+  .edge.active { stroke: var(--accent); stroke-width: 2.75; }
+  .edge.active.signal { stroke-dasharray: 6 4; }
+
+  .edge-label {
+    font-family: ui-monospace, Consolas, monospace; font-size: 10.5px; font-weight: 500;
+    fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 6px; stroke-linejoin: round;
+    text-anchor: middle; transition: fill 0.15s, opacity 0.15s; pointer-events: none;
+  }
+  .edge-label.dim { opacity: 0.12; }
+  .edge-label.active { fill: var(--accent); font-weight: 700; }
+
+  /* Minimal floating search box */
+  .search-container {
+    position: fixed; top: 32px; right: 48px; z-index: 1000;
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 6px 14px; border-radius: 20px;
+    border: 1px solid var(--ink);
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.05);
+    transition: width 0.2s;
+  }
+  .search-container svg { opacity: 0.6; color: var(--ink); }
+  .search-input {
+    border: none; background: transparent; font-size: 13px; color: var(--ink);
+    outline: none; width: 100px; transition: width 0.2s;
+  }
+  .search-input:focus { width: 220px; }
+  .search-input::placeholder { color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<div class="search-container">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+  <input type="text" id="search-input" class="search-input" placeholder="Search..." autocomplete="off" spellcheck="false">
+</div>
+
+<div class="page">
+  <header>
+    <h1 class="title">Intune & Entra ID</h1>
+    <p class="lede">Every object in the targeting chain with its properties absorbed as facets. Identity produces group membership → groups (refined by filters) drive assignment → assignments push workloads to managed devices → compliance verdict gates Conditional Access. <strong>Scope tags and RBAC are admin-plane overlays: they do not touch device targeting.</strong></p>
+    <div class="legend">
+      <span class="legend-title">Edge types</span>
+      <div class="legend-item">
+        <svg width="38" height="10"><line x1="2" y1="5" x2="36" y2="5" stroke="#15130f" stroke-width="1.5"/></svg>
+        Targets / refines
+      </div>
+      <div class="legend-item">
+        <svg width="38" height="10"><line x1="2" y1="5" x2="36" y2="5" stroke="#15130f" stroke-width="2.25"/></svg>
+        Applies to device
+      </div>
+      <div class="legend-item">
+        <svg width="38" height="10"><line x1="2" y1="5" x2="36" y2="5" stroke="#15130f" stroke-width="1.5" stroke-dasharray="5 4"/></svg>
+        Signal / verdict
+      </div>
+      <span class="legend-hint">Scroll / Drag to pan · Pinch / Ctrl+Scroll to zoom · Click to isolate</span>
+    </div>
+  </header>
+
+  <div class="board-wrap">
+    <div class="board" id="board">
+
+      <div class="col-header" style="left:0">    <span class="num">01</span> Identity</div>
+      <div class="col-header" style="left:680px"><span class="num">02</span> Membership</div>
+      <div class="col-header" style="left:1360px"><span class="num">03</span> Refinement</div>
+      <div class="col-header" style="left:2040px"><span class="num">04</span> Policy workloads</div>
+      <div class="col-header" style="left:2720px"><span class="num">05</span> Execution · enforcement</div>
+
+      <!-- ── Col 1: Identity ── -->
+      <div class="column col-1">
+
+        <div class="card" id="n-user">
+          <div class="ord">A2 · ENTRA USER</div>
+          <div class="name">User</div>
+          <p class="blurb">Cloud or AD-synced identity. Drives user-targeted assignments and sets primary-user affinity on enrolled devices.</p>
+          <div class="section-head">Attributes read by dynamic rules</div>
+          <ul>
+            <li>Department · city · country · job title</li>
+            <li><code>userPrincipalName</code> · <code>mail</code> · <code>extensionAttribute1–15</code></li>
+          </ul>
+          <div class="section-head">Carries</div>
+          <ul>
+            <li>Licenses: Intune Plan 1 · Plan 2 · EMS E3/E5 · M365 E3/E5</li>
+            <li>Entra ID P1 (Conditional Access) · P2 (risk-based CA)</li>
+            <li>Primary-user link to managed device</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-entra-dev">
+          <div class="ord">A3–A4 · ENTRA DEVICE</div>
+          <div class="name">Entra Device</div>
+          <p class="blurb">Identity record for an enrolled endpoint. Two representations exist simultaneously: this Entra object and the Intune <code>managedDevice</code> record.</p>
+          <div class="facet">
+            <div class="facet-label">Entra Registered</div>
+            <ul>
+              <li>BYOD path; no local Entra sign-in on Windows</li>
+              <li>CloudAP authenticates per-app; MDM-enrollable or MAM-only</li>
+            </ul>
+          </div>
+          <div class="facet">
+            <div class="facet-label">Entra Joined</div>
+            <ul>
+              <li>Cloud-native corporate Windows; local Entra sign-in (WAM)</li>
+              <li>Auto-enrolls in Intune MDM; supports Autopilot · WHfB</li>
+            </ul>
+          </div>
+          <div class="facet">
+            <div class="facet-label">Entra Hybrid Joined</div>
+            <ul>
+              <li>Domain-joined + synced via Entra Connect</li>
+              <li>On-prem AD primary authority; SCP points device to Entra tenant</li>
+              <li>Requires DC line-of-sight post-OOBE for full functionality</li>
+            </ul>
+          </div>
+          <div class="section-head">Key attributes</div>
+          <ul>
+            <li><code>deviceId</code> · <code>trustType</code> · <code>enrollmentProfileName</code></li>
+            <li><code>devicePhysicalIds</code>: <code>[ZTDId]:…</code> · <code>[OrderID]:&lt;tag&gt;</code></li>
+            <li><code>isCompliant</code> — written by Intune, read by Conditional Access</li>
+            <li>MS-Organization-Access cert (10 yr) · Primary Refresh Token (PRT)</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-autopilot">
+          <div class="ord">E1 · AUTOPILOT DEVICE</div>
+          <div class="name">Autopilot Device</div>
+          <p class="blurb">Pre-registered hardware record in the Autopilot service. Exists before the device is ever powered on; uploaded by OEM, reseller, or IT via CSV or Graph API.</p>
+          <div class="section-head">Identity</div>
+          <ul>
+            <li>Hardware hash · serial number · manufacturer · model</li>
+          </ul>
+          <div class="facet">
+            <div class="facet-label">Group tag</div>
+            <ul>
+              <li>Free-text field set at device hash upload</li>
+              <li>Stored as <code>[OrderID]:&lt;tag&gt;</code> in <code>devicePhysicalIds</code></li>
+              <li>Matched in dynamic group: <code>device.devicePhysicalIds -any "[OrderID]:Sales"</code></li>
+              <li>No effect without a dynamic group and profile assignment</li>
+            </ul>
+          </div>
+          <div class="facet">
+            <div class="facet-label">ZTDId</div>
+            <ul>
+              <li>Autopilot-unique device identifier; auto-generated at upload</li>
+              <li>Stored as <code>[ZTDId]:…</code>; also matchable in dynamic rules</li>
+              <li>Resolves to <code>enrollmentProfileName</code> after profile assignment</li>
+            </ul>
+          </div>
+        </div>
+
+      </div><!-- /col-1 -->
+
+      <!-- ── Col 2: Membership ── -->
+      <div class="column col-2">
+
+        <div class="card" id="n-groups">
+          <div class="ord">A6 · SECURITY GROUP</div>
+          <div class="name">Security group</div>
+          <p class="blurb">The universal targeting container. Every Intune assignment points at one — or at the virtual <code>All users</code> / <code>All devices</code> built-ins.</p>
+          <div class="facet">
+            <div class="facet-label">Assigned membership</div>
+            <ul>
+              <li>Users / devices added manually or via Graph API</li>
+              <li>Owners list with group-management permissions</li>
+            </ul>
+          </div>
+          <div class="facet">
+            <div class="facet-label">Dynamic rule</div>
+            <ul>
+              <li>KQL-style query; re-evaluated as objects change</li>
+              <li>Device keys: <code>devicePhysicalIds</code> · <code>enrollmentProfileName</code> · <code>deviceCategory</code> · <code>deviceOSType</code> · <code>deviceTrustType</code></li>
+              <li>User keys: <code>department</code> · <code>jobTitle</code> · <code>accountEnabled</code> · <code>extensionAttribute*</code></li>
+            </ul>
+          </div>
+          <div class="facet">
+            <div class="facet-label">Assignment intent</div>
+            <ul>
+              <li>Include vs. Exclude group precedence (Exclude always wins)</li>
+              <li>Mixed targeting (e.g. Include User Group + Exclude Device Group) introduces evaluation latency and unpredictability</li>
+            </ul>
+          </div>
+          <div class="section-head">Also used for</div>
+          <ul>
+            <li>Conditional Access user scoping</li>
+            <li>Entra ID role assignment (role-assignable groups only)</li>
+            <li>License assignment · AU membership</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-au">
+          <div class="ord">A7 · ADMINISTRATIVE UNIT</div>
+          <div class="name">Administrative Unit</div>
+          <p class="blurb">Entra virtual container limiting the reach of directory roles to a subset of users and devices. Paired with Intune scope groups for distributed IT teams.</p>
+          <div class="section-head">Variants</div>
+          <ul>
+            <li>Standard AU: scopes Entra roles to a subset of objects</li>
+            <li>Restricted Management AU (RMAU): blocks non-scoped admins from modifying members</li>
+          </ul>
+          <div class="section-head">Typical pairing</div>
+          <ul>
+            <li>AU narrows Entra role (e.g. Intune Administrator) to regional users/devices</li>
+            <li>Scope group narrows Intune RBAC role assignment</li>
+            <li>Scope tag restricts object visibility in Intune portal</li>
+          </ul>
+        </div>
+
+      </div><!-- /col-2 -->
+
+      <!-- ── Col 3: Refinement ── -->
+      <div class="column col-3">
+
+        <div class="card" id="n-filters">
+          <div class="ord">D7 · ASSIGNMENT FILTER</div>
+          <div class="name">Assignment filter</div>
+          <p class="blurb">Per-assignment include / exclude rule over device properties. Evaluated <em>at every device check-in</em> — not at group-membership time. Preferred over dynamic groups for device-only targeting: no membership-sync latency.</p>
+          <div class="section-head">Device properties available</div>
+          <ul>
+            <li><code>operatingSystemSKU</code> · <code>osVersion</code> · <code>osBuildVersion</code></li>
+            <li><code>manufacturer</code> · <code>model</code> · <code>cpuArchitecture</code></li>
+            <li><code>deviceOwnership</code>: personal · corporate</li>
+            <li><code>deviceCategory</code> · <code>enrollmentProfileName</code></li>
+            <li><code>deviceManagementType</code></li>
+          </ul>
+          <div class="section-head">Limits</div>
+          <ul>
+            <li>200 filters per tenant · 3 072 chars each</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-policyset">
+          <div class="ord">D5 · POLICY SET</div>
+          <div class="name">Policy set</div>
+          <p class="blurb">Assignment bundle. Groups apps, configuration profiles, compliance policies, Autopilot profiles, and app protection policies into one assignable object. <em>Assignment convenience only</em> — no effect on what contained objects do.</p>
+          <div class="section-head">Can contain</div>
+          <ul>
+            <li>Apps (all types) · App configuration policies</li>
+            <li>Device configuration profiles · Compliance policies</li>
+            <li>Autopilot deployment profiles · ESP profiles</li>
+            <li>App protection policies</li>
+          </ul>
+        </div>
+
+        <div class="card overlay" id="n-rbac">
+          <div class="ord">D1–D2 · RBAC</div>
+          <div class="name">RBAC roles & assignments</div>
+          <p class="blurb">Controls what admins can <em>do</em> in Intune. Entra roles (Intune Administrator · Global Administrator) override Intune RBAC entirely.</p>
+          <div class="section-head">Built-in roles</div>
+          <ul>
+            <li>Policy & Profile Manager · Application Manager</li>
+            <li>Help Desk Operator · Read Only Operator</li>
+            <li>Endpoint Security Manager · Intune Role Administrator</li>
+          </ul>
+          <div class="section-head">Role assignment binds</div>
+          <ul>
+            <li>Role + admin security group + scope groups + scope tags</li>
+            <li>Multi-Admin Approval: workflow for policy create / edit / assign</li>
+          </ul>
+        </div>
+
+        <div class="card overlay" id="n-scope">
+          <div class="ord">D3 · SCOPE TAG</div>
+          <div class="name">Scope tag</div>
+          <p class="blurb">Free-form label on Intune objects controlling which admins can see and edit them. <strong>Zero effect on device targeting.</strong> Every tenant has a Default tag visible to all admins.</p>
+          <div class="section-head">Applied to</div>
+          <ul>
+            <li>Config profiles · compliance · endpoint security</li>
+            <li>Apps · scripts · remediations · baselines</li>
+            <li>Autopilot devices and profiles · ESP profiles</li>
+          </ul>
+        </div>
+
+      </div><!-- /col-3 -->
+
+      <!-- ── Col 4: Policy workloads ── -->
+      <div class="column col-4">
+
+        <div class="card" id="n-win-enroll">
+          <div class="ord">E · WINDOWS ENROLLMENT</div>
+          <div class="name">Windows enrollment</div>
+          <p class="blurb">How a Windows device becomes managed. Autopilot is the zero-touch path; all variants perform an Entra join during OOBE.</p>
+          <div class="section-head">Autopilot deployment profiles</div>
+          <ul>
+            <li>User-driven (Entra join) — user signs in at OOBE; device imprints to that user</li>
+            <li>User-driven (Hybrid join) — Entra join + domain join; requires post-OOBE DC line-of-sight</li>
+            <li>Self-deploying — no user credentials at OOBE; userless / shared / kiosk</li>
+            <li>Pre-provisioned (white-glove) — IT pre-stages; user completes second phase</li>
+          </ul>
+          <div class="section-head">Autopilot device preparation profile</div>
+          <ul>
+            <li>Newer model; assigned to user group (not device group)</li>
+            <li>Enrollment-time grouping: device added to Entra group <em>during</em> enrollment; policies and apps apply inside ESP</li>
+            <li>Supports Win32 + LOB apps in ESP; classic Autopilot supports LOB only</li>
+          </ul>
+          <div class="section-head">Enrollment Status Page (ESP)</div>
+          <ul>
+            <li>Two-phase: device setup (pre-login) + user setup (post-login)</li>
+            <li>Blocks desktop until required apps / profiles are installed</li>
+            <li>Settings: allow use on error · allow reset · custom error message · timeout</li>
+          </ul>
+          <div class="section-head">Other enrollment objects</div>
+          <ul>
+            <li>Device categories: User prompt in Company Portal writes category to Intune record → syncs to Entra → drives dynamic grouping</li>
+            <li>Enrollment restrictions: platform · OS version range · device limit (1–15) · manufacturer</li>
+            <li>Bulk enrollment: Windows Configuration Designer (.ppkg) · DEM account (≤1 000 devices)</li>
+            <li>Corporate identifiers: pre-imported IMEI / serial — flips ownership to corporate</li>
+            <li>MDM/MAM auto-enrollment scope: Entra ID Mobility scope group triggers auto-enroll on Entra join</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-config">
+          <div class="ord">H · CONFIGURATION</div>
+          <div class="name">Configuration</div>
+          <p class="blurb">Settings, scripts, and update policies pushed via the MDM channel or Intune Management Extension (IME). Continuous — re-evaluated at every check-in.</p>
+          <div class="section-head">Profile types</div>
+          <ul>
+            <li>Settings catalog — recommended forward path; Administrative Templates deprecated Dec 2024</li>
+            <li>Templates: Device restrictions · Endpoint protection · Wi-Fi · VPN · Email · Kiosk · Shared multi-user device · Domain join · Edition upgrade · Custom OMA-URI</li>
+            <li>Group Policy analytics: import GPO XML → map to MDM CSP coverage → migrate supported settings to Settings Catalog</li>
+          </ul>
+          <div class="section-head">Code on device (via IME)</div>
+          <ul>
+            <li>Platform scripts: PowerShell — runs as System or User context; output captured in admin center</li>
+            <li>Remediations: detection + remediation script pair; scheduled hourly / daily / once; output in admin center reports</li>
+          </ul>
+          <div class="section-head">Windows updates (via Autopatch)</div>
+          <ul>
+            <li>Update rings: WUfB quality/feature deferral · service channel · pause up to 35 days</li>
+            <li>Feature update policy · Quality update policy · Driver update policy</li>
+            <li>Windows Update client policies (Settings Catalog category)</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-apps">
+          <div class="ord">K · APPS</div>
+          <div class="name">Apps</div>
+          <p class="blurb">Software delivery. Each app has a type, an intent, and a context. Companion policies configure and protect the app after installation.</p>
+          <div class="section-head">Windows</div>
+          <ul>
+            <li>Win32 <code>.intunewin</code>: detection rules · requirement rules · dependencies (≤100) · supersedence · install context (user / system / dual) · restart behaviour · 30 GB max</li>
+            <li>LOB: <code>.msi</code> · <code>.appx</code> · <code>.msixbundle</code> (8 GB max)</li>
+            <li>Microsoft Store app (new): user/device context · auto-updates</li>
+            <li>Microsoft 365 Apps: C2R · channel · architecture · shared-computer activation</li>
+            <li>Enterprise App Catalog <em>(Suite)</em>: 3 000+ prepackaged Win32 apps with auto-update</li>
+          </ul>
+          <div class="section-head">Companions</div>
+          <ul>
+            <li>App configuration policy: managed devices (MDM/OS channel) or managed apps (MAM/SDK channel)</li>
+            <li>Intents: Required · Available (enrolled) · Available (with or without enrollment) · Uninstall</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-sec">
+          <div class="ord">J · ENDPOINT SECURITY</div>
+          <div class="name">Endpoint security</div>
+          <p class="blurb">Purpose-built profiles for the device security stack. May overlap settings in Configuration; conflicts resolve per-setting — last write wins.</p>
+          <div class="section-head">Profiles</div>
+          <ul>
+            <li>Antivirus: Defender AV · exclusions · Windows Security UX · Defender Update controls</li>
+            <li>Disk encryption: BitLocker (Windows) — key escrow to Entra ID; rotation via remote action</li>
+            <li>Firewall: Windows Defender Firewall with per-rule profiles</li>
+            <li>EDR: onboards Defender for Endpoint; package type Auto (from connector) or manual blob</li>
+            <li>Attack Surface Reduction: ASR rules · Exploit protection · App & browser isolation · Web protection · Device control · Controlled folder access</li>
+            <li>Account protection: Windows Hello for Business · Credential Guard · LAPS (local admin password solution) · local user group membership</li>
+            <li>App Control for Business <em>(formerly WDAC)</em>: code integrity policy · managed installer support</li>
+            <li>Endpoint Privilege Management — EPM <em>(Suite)</em>: elevation settings + elevation rules (file / hash / publisher); behaviors: Automatic · User-confirmed · Support-approved</li>
+          </ul>
+          <div class="section-head">Security baselines</div>
+          <ul>
+            <li>Windows (v24H2) · Defender for Endpoint (v24H1) · Edge (v128)</li>
+            <li>Microsoft 365 Apps (v2306) · HoloLens 2 Standard + Advanced (v1)</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-comp">
+          <div class="ord">I · COMPLIANCE</div>
+          <div class="name">Compliance policy</div>
+          <p class="blurb">Health and risk rules evaluated on the device. The output — <code>isCompliant</code> — is written to the Entra device object and consumed by Conditional Access.</p>
+          <div class="section-head">Rule sources</div>
+          <ul>
+            <li>OS version range · password / PIN complexity · encryption (BitLocker)</li>
+            <li>Defender machine risk score: Clear · Low · Medium · High <em>(via connector)</em></li>
+            <li>Firewall · antivirus · secure boot · code integrity · BitLocker</li>
+            <li>Custom compliance: PowerShell discovery script + JSON settings definition</li>
+          </ul>
+          <div class="section-head">Tenant settings</div>
+          <ul>
+            <li>Validity period: 1–120 days (default 30)</li>
+            <li>Devices with no policy assigned: mark Compliant or Not compliant</li>
+            <li>Actions for noncompliance: email · push notification · remote lock · retire</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-mam">
+          <div class="ord">K8 · APP PROTECTION (MAM-WE)</div>
+          <div class="name">App protection · MAM</div>
+          <p class="blurb"><strong>Side path.</strong> Identity-bound; enforced by the Intune App SDK inside the app. Works on unenrolled Windows PCs — the primary BYOD data-protection mechanism for Windows. Targets user identity, not device record.</p>
+          <div class="section-head">Windows scope</div>
+          <ul>
+            <li>Applies to <strong>Microsoft Edge for Business</strong> on unenrolled Windows 10/11 PCs</li>
+            <li>MAM-WE (without enrollment) — no MDM channel involved</li>
+            <li>Other Win32 apps require the device to be enrolled; MAM-WE scope is narrower than mobile</li>
+          </ul>
+          <div class="section-head">Data protection</div>
+          <ul>
+            <li>Cut / copy / paste restrictions between work and personal contexts</li>
+            <li>Org data wipe on sign-out · selective wipe action from admin center</li>
+            <li>Encryption of org data at rest inside the managed app</li>
+          </ul>
+          <div class="section-head">Access requirements</div>
+          <ul>
+            <li>PIN · work-account credentials · Windows Hello</li>
+          </ul>
+          <div class="section-head">Conditional launch</div>
+          <ul>
+            <li>Min OS version · Defender threat level · offline grace period · disabled account check</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-certs">
+          <div class="ord">O · CERTIFICATES & PKI</div>
+          <div class="name">Certificates & PKI</div>
+          <p class="blurb">Certificate delivery to managed devices for 802.1X, VPN, email signing, and client auth. Requires connectors to on-prem or cloud CA infrastructure.</p>
+          <div class="section-head">Profile types</div>
+          <ul>
+            <li>Trusted certificate: root / intermediate CA <code>.cer</code> to device trust store; required before SCEP/PKCS on non-Windows</li>
+            <li>SCEP: device generates CSR; validated via Certificate Connector + NDES; SID extension for strong cert mapping; subject/SAN variables (<code>CN={{UserName}}</code> · <code>URN:UUID:{{DeviceID}}</code>)</li>
+            <li>PKCS: server-side key gen; Certificate Connector exports PFX to device</li>
+            <li>Imported PKCS: bulk-imported PFX for S/MIME signing; same cert to multiple users</li>
+          </ul>
+          <div class="section-head">Infrastructure</div>
+          <ul>
+            <li>Certificate Connector for Microsoft Intune: on-prem Windows service; NDES bridge · PKCS issuance · PFX import · revocation reporting</li>
+            <li>NDES (AD CS role): fronts SCEP; published via Entra App Proxy; Intune NDES module rejects non-Intune requests</li>
+            <li>Cloud PKI <em>(Suite)</em>: cloud-hosted CA; chains to customer root or Microsoft-issued root; replaces NDES + connector</li>
+          </ul>
+        </div>
+
+      </div><!-- /col-4 -->
+
+      <!-- ── Col 5: Execution & Enforcement ── -->
+      <div class="column col-5">
+
+        <div class="card" id="n-device">
+          <div class="ord">Q1 · MANAGED DEVICE</div>
+          <div class="name">Managed device</div>
+          <p class="blurb">The enrolled endpoint. Two records, one physical device — Intune writes the compliance verdict back to the Entra device twin.</p>
+          <div class="facet">
+            <div class="facet-label">Entra <code>device</code></div>
+            <ul>
+              <li>Join type · <code>trustType</code> · owner</li>
+              <li><code>isCompliant</code> — read by Conditional Access</li>
+              <li>MS-Organization-Access cert · PRT</li>
+              <li><code>devicePhysicalIds</code> (group tag · ZTDId)</li>
+            </ul>
+          </div>
+          <div class="facet">
+            <div class="facet-label">Intune <code>managedDevice</code></div>
+            <ul>
+              <li>Enrollment type · primary user · device ownership</li>
+              <li>Applied profiles · encryption status · jailbreak status</li>
+              <li>Compliance details · last check-in · device category</li>
+            </ul>
+          </div>
+          <div class="facet">
+            <div class="facet-label">Co-management</div>
+            <ul>
+              <li>SCCM + Intune dual authority on the same device</li>
+              <li>Workload sliders act as hard gates for Intune payload execution</li>
+            </ul>
+          </div>
+          <div class="section-head">Local execution</div>
+          <ul>
+            <li>MDM channel: CSPs (settings · restrictions · Wi-Fi · VPN · certs)</li>
+            <li>IME: Win32 apps · scripts · remediations (Windows)</li>
+            <li>Intune App SDK: MAM policy enforcement inside apps</li>
+          </ul>
+          <div class="section-head">Remote actions</div>
+          <ul>
+            <li>Sync · Restart · Wipe (selective / full) · Retire · Fresh Start</li>
+            <li>Autopilot Reset · BitLocker key rotation · LAPS key rotation</li>
+            <li>Remote lock · Reset passcode · Collect diagnostics</li>
+            <li>Remote Help <em>(Suite)</em> · Quick / full Defender scan</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-defender">
+          <div class="ord">P · DEFENDER FOR ENDPOINT</div>
+          <div class="name">Defender for Endpoint</div>
+          <p class="blurb">Connected peer service — not part of Intune. Exchanges risk signals and tasks via the Defender connector (service-to-service, configured in Intune admin center).</p>
+          <div class="section-head">Receives from Intune</div>
+          <ul>
+            <li>EDR onboarding blob (via EDR endpoint security policy or config profile)</li>
+            <li>AV · Firewall · ASR · Account protection policies (Endpoint Security workload)</li>
+          </ul>
+          <div class="section-head">Sends to Intune / Entra</div>
+          <ul>
+            <li>Machine risk score (Clear · Low · Medium · High) → consumed by Intune compliance policy and MAM conditional launch</li>
+            <li>Security tasks (Vulnerability Management → Intune admin queue; accept/reject; close loop)</li>
+          </ul>
+          <div class="section-head">Additional integration</div>
+          <ul>
+            <li>Security management for MDE: Intune endpoint security policies delivered to Defender-managed devices <em>not</em> enrolled in Intune MDM</li>
+            <li>Defender app on Windows: native client; receives policy via MDM or security management</li>
+          </ul>
+        </div>
+
+        <div class="card" id="n-ca">
+          <div class="ord">B1 · CONDITIONAL ACCESS</div>
+          <div class="name">Conditional Access</div>
+          <p class="blurb">Entra access gate evaluated at sign-in and continuously. Lives in Entra ID — not Intune. Final enforcement point for the compliance verdict.</p>
+          <div class="section-head">Grant controls (endpoint)</div>
+          <ul>
+            <li>Require device marked compliant</li>
+            <li>Require Entra hybrid-joined device</li>
+            <li>Require app protection policy <em>(MAM side path)</em></li>
+            <li>Require authentication strength</li>
+          </ul>
+          <div class="section-head">Targeting & Filtering</div>
+          <ul>
+            <li>Filter for devices: Entra ID rule evaluated at auth time (distinct from Intune check-in filters)</li>
+            <li>Scopes: User groups · cloud apps · network locations</li>
+          </ul>
+          <div class="section-head">Enforcement</div>
+          <ul>
+            <li>Sign-in evaluation: Reads <code>isCompliant</code>, risk score, and MAM status</li>
+            <li>Continuous Access Evaluation (CAE): Immediately revokes active session tokens if compliance is lost</li>
+          </ul>
+        </div>
+
+      </div><!-- /col-5 -->
+
+      <!-- SVG edge layer -->
+      <svg class="edges" id="edges-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="#15130f"/>
+          </marker>
+          <marker id="ah-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="#b6400a"/>
+          </marker>
+        </defs>
+      </svg>
+
+    </div><!-- /board -->
+  </div><!-- /board-wrap -->
+
+</div><!-- /page -->
+
+<script>
+const SNAP_PX = 18;
+
+// All lanes perfectly calculated to route within the massive 280px gaps
+const EDGES = [
+  // C1 (0-400) → C2 (680-1080)
+  { from:'n-user',      to:'n-groups',  fromY:0.45, toY:0.22, lane:500, kind:'normal', label:'members · attrs' },
+  { from:'n-entra-dev', to:'n-groups',  fromY:0.65, toY:0.55, lane:540, kind:'normal', label:'device attrs' },
+  // Autopilot lane pushed to 620 to give its 220px long horizontal segment total clearance
+  { from:'n-autopilot', to:'n-groups',  fromY:0.65, toY:0.78, lane:620, kind:'normal', label:'tag → dynamic rule' },
+
+  // C2 (680-1080) → C3 (1360-1760)
+  { from:'n-groups', to:'n-filters',   fromY:0.28, toY:0.50, lane:1180, kind:'normal', label:'refined by' },
+  { from:'n-groups', to:'n-policyset', fromY:0.72, toY:0.50, lane:1260, kind:'normal', label:'assigned to' },
+  { from:'n-au',     to:'n-rbac',      fromY:0.50, toY:0.50, lane:1220, kind:'normal', label:'scopes admins' },
+
+  // C3 (1360-1760) → C4 (2040-2440)
+  { from:'n-scope', to:'n-config', fromY:0.50, toY:0.10, lane:1840, kind:'signal', label:'gates visibility' },
+  { from:'n-filters', to:'n-win-enroll', fromY:0.18, toY:0.50, lane:1900, kind:'normal', label:'' },
+  { from:'n-filters', to:'n-config',     fromY:0.32, toY:0.50, lane:1900, kind:'normal', label:'targets ▸' },
+  { from:'n-filters', to:'n-apps',       fromY:0.44, toY:0.50, lane:1900, kind:'normal', label:'' },
+  { from:'n-filters', to:'n-sec',        fromY:0.56, toY:0.50, lane:1900, kind:'normal', label:'' },
+  { from:'n-filters', to:'n-comp',       fromY:0.66, toY:0.50, lane:1900, kind:'normal', label:'' },
+  { from:'n-filters', to:'n-mam',        fromY:0.76, toY:0.50, lane:1900, kind:'normal', label:'' },
+  { from:'n-filters', to:'n-certs',      fromY:0.88, toY:0.50, lane:1900, kind:'normal', label:'' },
+
+  // C4 (2040-2440) → C5 (2720-3120)
+  { from:'n-win-enroll', to:'n-device', fromY:0.50, toY:0.08, lane:2620, kind:'apply', label:'MDM enroll · OOBE' },
+  { from:'n-config',     to:'n-device', fromY:0.50, toY:0.22, lane:2620, kind:'apply', label:'CSPs · IME · scripts' },
+  { from:'n-apps',       to:'n-device', fromY:0.50, toY:0.36, lane:2620, kind:'apply', label:'installs' },
+  { from:'n-sec',        to:'n-device', fromY:0.50, toY:0.50, lane:2620, kind:'apply', label:'security' },
+  { from:'n-comp',       to:'n-device', fromY:0.50, toY:0.63, lane:2620, kind:'apply', label:'evaluates' },
+  { from:'n-certs',      to:'n-device', fromY:0.50, toY:0.76, lane:2620, kind:'apply', label:'cert delivery' },
+
+  { from:'n-sec', to:'n-defender', fromY:0.75, toY:0.60, lane:2500, kind:'normal', label:'onboarding' },
+  
+  // Feedback arrow: Left side of Defender (C5) backwards to Right side of Comp (C4)
+  { from:'n-defender', to:'n-comp', fromSide:'left', toSide:'right', fromY:0.40, toY:0.85, lane:2480, kind:'signal', label:'risk score' },
+
+  { from:'n-mam', to:'n-ca', fromY:0.50, toY:0.30, lane:2660, kind:'normal', label:'APP grant' },
+
+  // Vertical signal inside C5
+  { from:'n-device', to:'n-ca', fromSide:'bottom', toSide:'top', laneVertical:2920, kind:'signal', label:'isCompliant' },
+];
+
+function rectOf(id) {
+  const el = document.getElementById(id);
+  const col = el.offsetParent;
+  return {
+    left:   col.offsetLeft + el.offsetLeft,
+    top:    col.offsetTop  + el.offsetTop,
+    right:  col.offsetLeft + el.offsetLeft + el.offsetWidth,
+    bottom: col.offsetTop  + el.offsetTop  + el.offsetHeight,
+    width:  el.offsetWidth,
+    height: el.offsetHeight,
+  };
+}
+
+function smoothOrthogonal(points, radius = 12) {
+  if (points.length < 2) return '';
+  if (points.length === 2) {
+    const [p0, p1] = points;
+    return `M ${p0[0]} ${p0[1]} L ${p1[0]} ${p1[1]}`;
+  }
+  let d = `M ${points[0][0]} ${points[0][1]}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const [px,py] = points[i-1], [cx,cy] = points[i], [nx,ny] = points[i+1];
+    const l1 = Math.hypot(cx-px, cy-py), l2 = Math.hypot(nx-cx, ny-cy);
+    const r = Math.min(radius, l1/2, l2/2);
+    const ux1=(cx-px)/l1, uy1=(cy-py)/l1, ux2=(nx-cx)/l2, uy2=(ny-cy)/l2;
+    d += ` L ${cx-ux1*r} ${cy-uy1*r} Q ${cx} ${cy} ${cx+ux2*r} ${cy+uy2*r}`;
+  }
+  const last = points[points.length-1];
+  d += ` L ${last[0]} ${last[1]}`;
+  return d;
+}
+
+function waypointsFor(edge) {
+  const rA = rectOf(edge.from);
+  const rB = rectOf(edge.to);
+
+  if (edge.fromSide === 'bottom' && edge.toSide === 'top') {
+    const x = edge.laneVertical;
+    return [[x, rA.bottom], [x, rB.top - 6]];
+  }
+  
+  if (edge.fromSide === 'left' && edge.toSide === 'right') {
+    const sx = rA.left;
+    let   sy = rA.top + rA.height * (edge.fromY ?? 0.5);
+    const ex = rB.right + 6;
+    let   ey = rB.top + rB.height * (edge.toY ?? 0.5);
+    return [[sx, sy], [edge.lane, sy], [edge.lane, ey], [ex, ey]];
+  }
+
+  const sx = rA.right;
+  let   sy = rA.top + rA.height * (edge.fromY ?? 0.5);
+  const ex = rB.left - 6;
+  let   ey = rB.top + rB.height * (edge.toY ?? 0.5);
+
+  if (Math.abs(sy - ey) < SNAP_PX) {
+    const avg = (sy + ey) / 2;
+    return [[sx, avg], [ex, avg]];
+  }
+
+  return [[sx, sy], [edge.lane, sy], [edge.lane, ey], [ex, ey]];
+}
+
+function labelPositionFor(pts) {
+  let best = null;
+  // Pin label strictly on the longest horizontal line
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1,y1] = pts[i], [x2,y2] = pts[i+1];
+    if (Math.abs(y1-y2) > 0.5) continue;
+    const len = Math.abs(x2-x1);
+    if (!best || len > best.len) best = { len, mx:(x1+x2)/2, my:(y1+y2)/2 };
+  }
+  if (best) return { x: best.mx, y: best.my - 7, rotate: false };
+  
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1,y1] = pts[i], [x2,y2] = pts[i+1];
+    if (Math.abs(x1-x2) > 0.5) continue;
+    return { x: x1 + 8, y: (y1+y2)/2, rotate: false };
+  }
+  return null;
+}
+
+const svg = document.getElementById('edges-svg');
+const board = document.getElementById('board');
+const page = document.querySelector('.page');
+let rendered = [];
+
+function sizeBoard() {
+  let maxBottom = 0;
+  document.querySelectorAll('.column').forEach(c => {
+    maxBottom = Math.max(maxBottom, c.offsetTop + c.offsetHeight);
+  });
+  board.style.height = (maxBottom + 60) + 'px';
+}
+
+function renderEdges() {
+  sizeBoard();
+  svg.querySelectorAll('path.edge, text.edge-label').forEach(n => n.remove());
+  rendered = [];
+
+  EDGES.forEach(edge => {
+    const pts = waypointsFor(edge);
+    const d = smoothOrthogonal(pts, 12);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', `edge ${edge.kind==='apply'?'apply':edge.kind==='signal'?'signal':''}`);
+    path.setAttribute('marker-end','url(#ah)');
+    path.dataset.from = edge.from;
+    path.dataset.to   = edge.to;
+    svg.appendChild(path);
+
+    let labelEl = null;
+    if (edge.label) {
+      const pos = labelPositionFor(pts);
+      if (pos) {
+        labelEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+        labelEl.setAttribute('x', pos.x);
+        labelEl.setAttribute('y', pos.y);
+        labelEl.setAttribute('class','edge-label');
+        labelEl.textContent = edge.label;
+        labelEl.dataset.from = edge.from;
+        labelEl.dataset.to   = edge.to;
+        svg.appendChild(labelEl);
+      }
+    }
+
+    rendered.push({ edge, path, label: labelEl });
+  });
+}
+
+// ==========================================
+// PAN, ZOOM & TOUCH LOGIC 
+// ==========================================
+let scale = 1;
+let panX = 0;
+let panY = 0;
+let ticking = false;
+
+let isDragging = false;
+let didDrag = false;
+let startMouseX = 0;
+let startMouseY = 0;
+let initialPanX = 0;
+let initialPanY = 0;
+
+let initialDistance = null;
+let initialScale = 1;
+let initialPinchCenter = null;
+
+function updateTransform() {
+  if (!ticking) {
+    requestAnimationFrame(() => {
+      page.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+      ticking = false;
+    });
+    ticking = true;
+  }
+}
+
+function initZoom() {
+  // Start slightly more zoomed out to display the new wider layout beautifully
+  scale = window.innerWidth >= 1400 ? 0.70 : 0.55;
+  panX = 0; 
+  panY = 0;
+  updateTransform();
+}
+
+document.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) {
+    const zoomSensitivity = 0.002;
+    const oldScale = scale;
+    scale *= Math.exp(-e.deltaY * zoomSensitivity);
+    scale = Math.max(0.15, Math.min(scale, 4));
+    const xs = (e.clientX - panX) / oldScale;
+    const ys = (e.clientY - panY) / oldScale;
+    panX = e.clientX - xs * scale;
+    panY = e.clientY - ys * scale;
+  } else {
+    panX -= e.deltaX;
+    panY -= e.deltaY;
+  }
+  updateTransform();
+}, { passive: false });
+
+document.addEventListener('mousedown', (e) => {
+  if (e.button !== 0 || e.target.closest('.search-container')) return;
+  isDragging = true;
+  didDrag = false;
+  startMouseX = e.clientX;
+  startMouseY = e.clientY;
+  initialPanX = panX;
+  initialPanY = panY;
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - startMouseX;
+  const dy = e.clientY - startMouseY;
+  if (!didDrag && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+    didDrag = true;
+    document.body.style.cursor = 'grabbing';
+  }
+  if (didDrag) {
+    panX = initialPanX + dx;
+    panY = initialPanY + dy;
+    updateTransform();
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  isDragging = false;
+  document.body.style.cursor = '';
+});
+
+document.addEventListener('touchstart', (e) => {
+  if (e.target.closest('.search-container')) return;
+  if (e.touches.length === 1) {
+    isDragging = true;
+    didDrag = false;
+    startMouseX = e.touches[0].clientX;
+    startMouseY = e.touches[0].clientY;
+    initialPanX = panX;
+    initialPanY = panY;
+  } else if (e.touches.length === 2) {
+    isDragging = false;
+    initialDistance = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    initialScale = scale;
+    initialPinchCenter = {
+      x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+    };
+    initialPanX = panX;
+    initialPanY = panY;
+  }
+}, { passive: false });
+
+document.addEventListener('touchmove', (e) => {
+  if (e.target.closest('.search-container')) return;
+  if (isDragging || initialDistance) e.preventDefault(); 
+  if (e.touches.length === 1 && isDragging) {
+    const dx = e.touches[0].clientX - startMouseX;
+    const dy = e.touches[0].clientY - startMouseY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDrag = true;
+    if (didDrag) {
+      panX = initialPanX + dx;
+      panY = initialPanY + dy;
+      updateTransform();
+    }
+  } else if (e.touches.length === 2 && initialDistance) {
+    const currentDistance = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const currentCenter = {
+      x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+    };
+    const zoomFactor = currentDistance / initialDistance;
+    scale = Math.max(0.15, Math.min(initialScale * zoomFactor, 4));
+    const xs = (initialPinchCenter.x - initialPanX) / initialScale;
+    const ys = (initialPinchCenter.y - initialPanY) / initialScale;
+    panX = currentCenter.x - xs * scale;
+    panY = currentCenter.y - ys * scale;
+    updateTransform();
+  }
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+  if (e.touches.length < 2) initialDistance = null;
+  if (e.touches.length === 0) {
+    isDragging = false;
+  } else if (e.touches.length === 1) {
+    startMouseX = e.touches[0].clientX;
+    startMouseY = e.touches[0].clientY;
+    initialPanX = panX;
+    initialPanY = panY;
+  }
+});
+
+// ==========================================
+// CARD HIGHLIGHT & SEARCH LOGIC
+// ==========================================
+const cards = [...document.querySelectorAll('.card')];
+const searchInput = document.getElementById('search-input');
+let selectedId = null;
+let searchQuery = '';
+
+function highlight(id) {
+  const connected = new Set([id]);
+  rendered.forEach(({edge, path, label}) => {
+    const on = edge.from===id || edge.to===id;
+    path.classList.toggle('active', on);
+    path.classList.toggle('dim', !on);
+    path.setAttribute('marker-end', on ? 'url(#ah-active)' : 'url(#ah)');
+    if (label) { label.classList.toggle('active',on); label.classList.toggle('dim',!on); }
+    if (on) { connected.add(edge.from); connected.add(edge.to); }
+  });
+  cards.forEach(c => {
+    if (c.id===id)                { c.classList.add('active');  c.classList.remove('dim','related'); }
+    else if (connected.has(c.id)) { c.classList.add('related'); c.classList.remove('dim','active'); }
+    else                          { c.classList.add('dim');     c.classList.remove('active','related'); }
+  });
+}
+
+function clearHighlight() {
+  if (searchQuery && !selectedId) {
+    searchInput.value = '';
+    searchQuery = '';
+    cards.forEach(c => c.classList.remove('search-match'));
+  }
+  rendered.forEach(({path, label}) => {
+    path.classList.remove('active','dim');
+    path.setAttribute('marker-end','url(#ah)');
+    if (label) label.classList.remove('active','dim');
+  });
+  cards.forEach(c => c.classList.remove('active','related','dim','search-match'));
+}
+
+searchInput.addEventListener('input', (e) => {
+  searchQuery = e.target.value.toLowerCase().trim();
+  if (searchQuery) {
+    selectedId = null; 
+    cards.forEach(c => {
+      if (c.textContent.toLowerCase().includes(searchQuery)) {
+        c.classList.add('search-match');
+        c.classList.remove('dim', 'active', 'related');
+      } else {
+        c.classList.add('dim');
+        c.classList.remove('search-match', 'active', 'related');
+      }
+    });
+    rendered.forEach(({path, label}) => {
+      path.classList.add('dim'); 
+      path.classList.remove('active');
+      path.setAttribute('marker-end', 'url(#ah)');
+      if (label) { label.classList.add('dim'); label.classList.remove('active'); }
+    });
+  } else {
+    cards.forEach(c => c.classList.remove('search-match', 'dim'));
+    rendered.forEach(({path}) => path.classList.remove('dim'));
+  }
+});
+
+cards.forEach(card => {
+  card.addEventListener('click', (e) => {
+    if (didDrag) return; 
+    e.stopPropagation();
+    if (searchQuery) {
+      searchInput.value = '';
+      searchQuery = '';
+      cards.forEach(c => c.classList.remove('search-match'));
+    }
+    if (selectedId === card.id) {
+      selectedId = null;
+      clearHighlight();
+    } else {
+      selectedId = card.id;
+      highlight(card.id);
+    }
+  });
+});
+
+document.addEventListener('click', (e) => {
+  if (didDrag || e.target.closest('.search-container')) return; 
+  if (selectedId || searchQuery) {
+    selectedId = null;
+    clearHighlight();
+  }
+});
+
+function init() { 
+  renderEdges();
+  initZoom(); 
+}
+
+if (document.fonts?.ready) document.fonts.ready.then(init);
+else window.addEventListener('load', init);
+
+window.addEventListener('resize', renderEdges);
+</script>
+</body>
+</html>
